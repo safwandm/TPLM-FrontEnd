@@ -42,7 +42,6 @@ jobs:
   Analysis:
     runs-on: ubuntu-latest
 
-
     steps:
       - name: Analyze with SonarCloud
 
