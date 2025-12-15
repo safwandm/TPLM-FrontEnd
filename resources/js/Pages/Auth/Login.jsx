@@ -1,100 +1,131 @@
-import Checkbox from '@/Components/Checkbox';
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
-import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { useState } from "react";
 
-export default function Login({ status, canResetPassword }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        email: '',
-        password: '',
-        remember: false,
-    });
+export default function Login() {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-    const submit = (e) => {
+    // if (localStorage.getItem("auth_token")) {
+    //     localStorage.removeItem("auth_token");
+    // }
+
+    // if (localStorage.getItem("auth_user")) {
+    //     localStorage.removeItem("auth_user");
+    // }
+
+    async function handleLogin(e) {
         e.preventDefault();
+        setLoading(true);
+        setError("");
 
-        post(route('login'), {
-            onFinish: () => reset('password'),
-        });
-    };
+        try {
+            const response = await fetch("http://localhost:8001/api/login", {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Laravel validation / auth error
+                throw data;
+            }
+
+            // ✅ Save auth
+            localStorage.setItem("auth_token", data.token);
+            localStorage.setItem("auth_user", JSON.stringify(data.user));
+
+            console.log("Logged in user:", data.user);
+
+            // ✅ Redirect
+            window.location.href = "/dashboard";
+
+        } catch (err) {
+            // Laravel error formats handling
+            if (err?.errors?.email) {
+                setError(err.errors.email[0]);
+            } else if (err?.message) {
+                setError(err.message);
+            } else {
+                setError("Login gagal");
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const canLogin = email.length > 0 && password.length > 0;
 
     return (
-        <GuestLayout>
-            <Head title="Log in" />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-900 to-blue-700">
+            <div className="bg-white w-full max-w-md p-8 rounded-xl shadow-lg">
 
-            {status && (
-                <div className="mb-4 text-sm font-medium text-green-600">
-                    {status}
-                </div>
-            )}
-
-            <form onSubmit={submit}>
-                <div>
-                    <InputLabel htmlFor="email" value="Email" />
-
-                    <TextInput
-                        id="email"
-                        type="email"
-                        name="email"
-                        value={data.email}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        isFocused={true}
-                        onChange={(e) => setData('email', e.target.value)}
-                    />
-
-                    <InputError message={errors.email} className="mt-2" />
+                <div className="flex flex-col items-center mb-6">
+                    <img src="/logo.png" alt="Logo" className="w-24 h-24 mb-3" />
+                    <h1 className="text-xl font-semibold text-gray-800">
+                        Platform Kuis
+                    </h1>
+                    <p className="text-gray-500 text-sm">
+                        Login ke akun Anda
+                    </p>
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-600 p-3 rounded mb-4">
+                        {error}
+                    </div>
+                )}
 
-                    <TextInput
-                        id="password"
-                        type="password"
-                        name="password"
-                        value={data.password}
-                        className="mt-1 block w-full"
-                        autoComplete="current-password"
-                        onChange={(e) => setData('password', e.target.value)}
-                    />
-
-                    <InputError message={errors.password} className="mt-2" />
-                </div>
-
-                <div className="mt-4 block">
-                    <label className="flex items-center">
-                        <Checkbox
-                            name="remember"
-                            checked={data.remember}
-                            onChange={(e) =>
-                                setData('remember', e.target.checked)
-                            }
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div>
+                        <label className="text-gray-700">Email</label>
+                        <input
+                            type="email"
+                            placeholder="Masukan email Anda"
+                            className="w-full mt-1 p-2 border rounded"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                         />
-                        <span className="ms-2 text-sm text-gray-600">
-                            Remember me
-                        </span>
-                    </label>
-                </div>
+                    </div>
 
-                <div className="mt-4 flex items-center justify-end">
-                    {canResetPassword && (
-                        <Link
-                            href={route('password.request')}
-                            className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                        >
-                            Forgot your password?
-                        </Link>
-                    )}
+                    <div>
+                        <label className="text-gray-700">Password</label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Masukan password Anda"
+                                className="w-full mt-1 p-2 pr-10 border rounded"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="absolute right-2 top-3 text-gray-500"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? "🙈" : "👁️"}
+                            </button>
+                        </div>
+                    </div>
 
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Log in
-                    </PrimaryButton>
-                </div>
-            </form>
-        </GuestLayout>
+                    <button
+                        type="submit"
+                        disabled={!canLogin || loading}
+                        className={`w-full py-2 text-white rounded ${canLogin && !loading
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "bg-gray-400"
+                            }`}
+                    >
+                        {loading ? "Loading..." : "Login"}
+                    </button>
+                </form>
+            </div>
+        </div>
     );
 }
