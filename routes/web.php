@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/login', fn () => Inertia::render('Login'));
 Route::get('/dashboard', fn () => Inertia::render('Dashboard'));
+Route::get('/admin', fn () => Inertia::render('Admin'));
 
 
 require __DIR__.'/auth.php';

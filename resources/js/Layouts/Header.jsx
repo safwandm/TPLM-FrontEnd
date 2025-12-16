@@ -1,9 +1,19 @@
 import React from "react";
 
 export default function Header({ user }) {
-    function handleLogout() {
+    async function handleLogout() {
+
+        const token = localStorage.getItem("auth_token");
+        await fetch("http://localhost:8001/api/logout", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
         localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_user");
+
         window.location.href = "/login";
     }
 

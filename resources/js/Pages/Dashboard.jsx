@@ -9,10 +9,7 @@ import {
 } from "react-icons/fa";
 
 export default function Dashboard() {
-    /* =====================================
-       AUTH STATE
-    ===================================== */
-    const [user, setUser] = useState(null);
+    const user = JSON.parse(localStorage.getItem("auth_user"));
 
     /* =====================================
        QUIZ STATE
@@ -21,21 +18,6 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [loadingId, setLoadingId] = useState(null);
-
-    /* =====================================
-       AUTH GUARD
-    ===================================== */
-    useEffect(() => {
-        const token = localStorage.getItem("auth_token");
-        const storedUser = localStorage.getItem("auth_user");
-
-        if (!token || !storedUser) {
-            window.location.href = "/login";
-            return;
-        }
-
-        setUser(JSON.parse(storedUser));
-    }, []);
 
     /* =====================================
        FETCH QUIZZES
@@ -109,22 +91,9 @@ export default function Dashboard() {
         }, 600);
     }
 
-    function handleLogout() {
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("auth_user");
-        window.location.href = "/login";
-    }
-
     /* =====================================
        LOADING / ERROR
     ===================================== */
-    if (!user || loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p className="text-gray-500">Loading dashboard...</p>
-            </div>
-        );
-    }
 
     if (error) {
         return (
@@ -138,7 +107,7 @@ export default function Dashboard() {
        UI
     ===================================== */
     return (
-        <ProtectedLayout>
+        <ProtectedLayout allowedRoles={["teacher"]}>
             <div>
                 <div className="flex justify-between items-center mb-6">
                     <div>
@@ -157,12 +126,6 @@ export default function Dashboard() {
                             <FaPlus /> Kuis Baru
                         </a>
 
-                        <button
-                            onClick={handleLogout}
-                            className="text-red-600"
-                        >
-                            Logout
-                        </button>
                     </div>
                 </div>
 
@@ -177,13 +140,17 @@ export default function Dashboard() {
                             >
                                 <div>
                                     <h3 className="text-blue-700 font-semibold text-lg">
-                                        {q.title}
+                                        {q.judul}
                                     </h3>
+
                                     <div className="flex gap-4 text-gray-600 mt-1">
                                         <span className="text-yellow-600">
-                                            {q.questions_count} Soal
+                                            {q.pertanyaan_count} Soal
                                         </span>
-                                        <span>{q.duration}s</span>
+
+                                        {q.total_waktu && (
+                                            <span>Batas waktu: {q.total_waktu}s</span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -191,19 +158,13 @@ export default function Dashboard() {
                                     <button onClick={() => handleEdit(q.id)}>
                                         <FaEdit />
                                     </button>
-                                    <button
-                                        onClick={() => handleStart(q.id)}
-                                        disabled={loadingId === q.id}
-                                    >
+                                    <button onClick={() => handleStart(q.id)}>
                                         <FaPlay />
                                     </button>
                                     <button onClick={handleExport}>
                                         <FaFileAlt />
                                     </button>
-                                    <button
-                                        onClick={() => handleDelete(q.id)}
-                                        disabled={loadingId === q.id}
-                                    >
+                                    <button onClick={() => handleDelete(q.id)}>
                                         <FaTrash />
                                     </button>
                                 </div>

@@ -43,8 +43,19 @@ export default function Login() {
 
             console.log("Logged in user:", data.user);
 
-            // ✅ Redirect
-            window.location.href = "/dashboard";
+            if (data.roles.includes("admin")) {
+                window.location.href = "/admin";
+                return;
+            }
+
+            if (data.roles.includes("teacher")) {
+                window.location.href = "/dashboard";
+                return;
+            }
+
+            // fallback (student, etc.)
+            window.location.href = "/";
+
 
         } catch (err) {
             // Laravel error formats handling

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 
 import AppLayout from "@/Layouts/AppLayout";
 import ProtectedLayout from "@/Layouts/ProtectedLayout";
-import { FaTrash } from "react-icons/fa";
+import { FaTrash, FaPlus } from "react-icons/fa";
 import { apiFetch } from "@/lib/api";
 
 export default function CreateQuiz() {
@@ -114,7 +114,7 @@ export default function CreateQuiz() {
             });
 
             if (!res.ok) {
-                const text = await res.text(); // IMPORTANT
+                const text = await res.text(); 
                 console.error("Server response:", text);
                 alert("Gagal menyimpan kuis");
                 return;
@@ -129,7 +129,7 @@ export default function CreateQuiz() {
     }
 
     return (
-        <ProtectedLayout>
+        <ProtectedLayout allowedRoles={["teacher"]}>
             <div className="max-w-4xl mx-auto space-y-8">
 
                 {/* -------------------------------------- */}
@@ -287,9 +287,9 @@ export default function CreateQuiz() {
 
                         <button
                             onClick={addQuestion}
-                            className="bg-blue-700 text-white px-4 py-2 rounded mt-2"
+                            className="bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
                         >
-                            Tambahkan Soal
+                            <FaPlus /> Tambahkan Soal
                         </button>
                     </div>
                 </div>

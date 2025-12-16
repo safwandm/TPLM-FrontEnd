@@ -1,52 +1,38 @@
-// resources/js/Pages/Quizzes/Edit.jsx
-import React, { useEffect, useState } from "react";
-// import AppLayout from "@/Layouts/AppLayout";
+import React, { useEffect, useState, useRef } from "react";
 import ProtectedLayout from "@/Layouts/ProtectedLayout";
-// import { usePage, router } from "@inertiajs/react";
-import { FaTrash } from "react-icons/fa";
+import { FaTrash, FaPlus } from "react-icons/fa";
 
 export default function Edit() {
-    /* =====================================================
-       ROUTE PARAM (Mock Inertia)
-    ===================================================== */
-    const { id } = usePage().props;
-    const quizId = Number(id);
+    const editFormRef = useRef(null);
 
-    /* =====================================================
-       LOAD QUIZ FROM LOCALSTORAGE
-    ===================================================== */
-    const [loaded, setLoaded] = useState(false);
-    const [quiz, setQuiz] = useState(null);
+    /* ===============================
+       CHANGE TRACKING (PERSISTENT)
+    =============================== */
+    const addedQuestionsRef = useRef([]);
+    const updatedQuestionsRef = useRef(new Map());
+    const deletedQuestionIdsRef = useRef(new Set());
 
-    useEffect(() => {
-        const saved = JSON.parse(localStorage.getItem("savedQuizzes")) ?? [];
-        const found = saved.find(q => q.id === quizId);
-        if (found) setQuiz(found);
-        setLoaded(true);
-    }, [quizId]);
+    /* ===============================
+       GET QUIZ ID
+    =============================== */
+    const quizId = Number(window.location.pathname.split("/")[2]);
 
-    /* =====================================================
-       QUIZ FORM STATE
-    ===================================================== */
+    /* ===============================
+       STATE
+    =============================== */
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
     const [title, setTitle] = useState("");
     const [duration, setDuration] = useState("");
     const [showAnswers, setShowAnswers] = useState(false);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [questions, setQuestions] = useState([]);
 
-    useEffect(() => {
-        if (!quiz) return;
-        setTitle(quiz.title);
-        setDuration(quiz.duration ?? "");
-        setShowAnswers(quiz.settings?.showAnswers ?? false);
-        setShowLeaderboard(quiz.settings?.showLeaderboard ?? false);
-        setQuestions(quiz.questions ?? []);
-    }, [quiz]);
-
-    /* =====================================================
-       QUESTION FORM STATE
-    ===================================================== */
-    const [editingQuestionId, setEditingQuestionId] = useState(null);
+    /* ===============================
+       FORM STATE
+    =============================== */
+    const [editingId, setEditingId] = useState(null);
     const [qText, setQText] = useState("");
     const [qImage, setQImage] = useState("");
     const [qMath, setQMath] = useState("");
@@ -57,8 +43,52 @@ export default function Edit() {
     const [correct, setCorrect] = useState("a");
     const [qTimer, setQTimer] = useState("");
 
-    function resetQuestionForm() {
-        setEditingQuestionId(null);
+    /* ===============================
+       FETCH QUIZ
+    =============================== */
+    useEffect(() => {
+        const token = localStorage.getItem("auth_token");
+        if (!token) return (window.location.href = "/login");
+
+        fetch(`http://127.0.0.1:8001/api/teacher/kuis/${quizId}`, {
+            headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                setTitle(data.judul);
+                setDuration(data.total_waktu ?? "");
+                setShowAnswers(data.tampilkan_jawaban_benar);
+                setShowLeaderboard(data.tampilkan_peringkat);
+
+                setQuestions(
+                    data.pertanyaan.map((q) => ({
+                        id: q.id,
+                        text: q.pertanyaan,
+                        image: q.url_gambar,
+                        math: q.persamaan_matematika,
+                        timer: q.batas_waktu,
+                        options: {
+                            a: q.opsi_a,
+                            b: q.opsi_b,
+                            c: q.opsi_c,
+                            d: q.opsi_d,
+                        },
+                        correct: q.jawaban_benar,
+                    }))
+                );
+            })
+            .catch(() => setError("Gagal memuat kuis"))
+            .finally(() => setLoading(false));
+    }, [quizId]);
+
+    /* ===============================
+       HELPERS
+    =============================== */
+    function resetForm() {
+        setEditingId(null);
         setQText("");
         setQImage("");
         setQMath("");
@@ -70,8 +100,8 @@ export default function Edit() {
         setQTimer("");
     }
 
-    function startEditQuestion(q) {
-        setEditingQuestionId(q.id);
+    function startEdit(q) {
+        setEditingId(q.id);
         setQText(q.text);
         setQImage(q.image ?? "");
         setQMath(q.math ?? "");
@@ -81,91 +111,165 @@ export default function Edit() {
         setOptD(q.options.d);
         setCorrect(q.correct);
         setQTimer(q.timer ?? "");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        editFormRef.current?.scrollIntoView({ behavior: "smooth" });
     }
 
+    /* ===============================
+       ADD / UPDATE QUESTION
+    =============================== */
     function submitQuestion() {
-        if (!qText.trim()) return alert("Pertanyaan tidak boleh kosong");
-        if (![optA, optB, optC, optD].every(v => v.trim()))
-            return alert("Semua pilihan jawaban harus diisi");
+        if (!qText.trim()) return alert("Pertanyaan wajib diisi");
 
         const payload = {
-            id: editingQuestionId ?? Date.now(),
-            text: qText,
-            image: qImage || null,
-            math: qMath || null,
-            options: { a: optA, b: optB, c: optC, d: optD },
-            correct,
-            timer: qTimer ? Number(qTimer) : null,
+            pertanyaan: qText,
+            opsi_a: optA,
+            opsi_b: optB,
+            opsi_c: optC,
+            opsi_d: optD,
+            jawaban_benar: correct,
+            url_gambar: qImage || null,
+            persamaan_matematika: qMath || null,
+            batas_waktu: qTimer ? Number(qTimer) : null,
         };
 
-        setQuestions(prev =>
-            editingQuestionId
-                ? prev.map(q => (q.id === editingQuestionId ? payload : q))
-                : [...prev, payload]
-        );
+        if (editingId) {
+            updatedQuestionsRef.current.set(editingId, payload);
+            setQuestions((qs) =>
+                qs.map((q) =>
+                    q.id === editingId ? { ...q, text: qText, options: payload } : q
+                )
+            );
+        } else {
+            const tempId = `temp-${Date.now()}`;
+            addedQuestionsRef.current.push({ ...payload, kuis_id: quizId });
+            setQuestions((qs) => [...qs, { id: tempId, text: qText, options: payload }]);
+        }
 
-        resetQuestionForm();
+        resetForm();
     }
 
+    /* ===============================
+       DELETE QUESTION
+    =============================== */
     function deleteQuestion(id) {
         if (!confirm("Hapus pertanyaan?")) return;
-        setQuestions(prev => prev.filter(q => q.id !== id));
+
+        if (String(id).startsWith("temp-")) {
+            addedQuestionsRef.current = addedQuestionsRef.current.filter(
+                (_, i) => i !== id
+            );
+        } else {
+            deletedQuestionIdsRef.current.add(id);
+            updatedQuestionsRef.current.delete(id);
+        }
+
+        setQuestions((qs) => qs.filter((q) => q.id !== id));
     }
 
-    function saveQuiz() {
-        if (!quiz) return alert("Quiz not found!");
+    /* ===============================
+       SAVE ALL
+    =============================== */
+    async function saveQuiz() {
+        const token = localStorage.getItem("auth_token");
 
-        const saved = JSON.parse(localStorage.getItem("savedQuizzes")) ?? [];
-        const updatedQuiz = {
-            ...quiz,
-            title,
-            duration,
-            settings: { showAnswers, showLeaderboard },
-            questions,
-        };
+        try {
+            /* 1️⃣ UPDATE KUIS */
+            await fetch(`http://127.0.0.1:8001/api/teacher/kuis/${quizId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    judul: title,
+                    total_waktu: duration,
+                    tampilkan_jawaban_benar: showAnswers,
+                    tampilkan_peringkat: showLeaderboard,
+                }),
+            });
 
-        localStorage.setItem(
-            "savedQuizzes",
-            JSON.stringify(saved.map(q => (q.id === quizId ? updatedQuiz : q)))
+            /* 2️⃣ DELETE */
+            for (const id of deletedQuestionIdsRef.current) {
+                await fetch(`http://127.0.0.1:8001/api/teacher/pertanyaan/${id}`, {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+            }
+
+            /* 3️⃣ UPDATE */
+            for (const [id, payload] of updatedQuestionsRef.current.entries()) {
+                await fetch(`http://127.0.0.1:8001/api/teacher/pertanyaan/${id}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payload),
+                });
+            }
+
+            /* 4️⃣ ADD */
+            for (const q of addedQuestionsRef.current) {
+                await fetch(`http://127.0.0.1:8001/api/teacher/pertanyaan`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(q),
+                });
+            }
+
+            alert("Perubahan disimpan");
+            window.location.href = "/dashboard";
+        } catch (e) {
+            alert("Gagal menyimpan perubahan");
+        }
+    }
+
+    /* ===============================
+       UI
+    =============================== */
+    if (loading)
+        return (
+            <ProtectedLayout allowedRoles={["teacher"]}>
+                <div className="p-6">Loading...</div>
+            </ProtectedLayout>
         );
 
-        router.visit("/dashboard");
-    }
+    if (error)
+        return (
+            <ProtectedLayout allowedRoles={["teacher"]}>
+                <div className="p-6 text-red-600">{error}</div>
+            </ProtectedLayout>
+        );
 
-    if (!loaded) return <ProtectedLayout><div className="p-6">Loading...</div></ProtectedLayout>;
-    if (!quiz) return <ProtectedLayout><div className="p-6 text-red-600">Quiz not found</div></ProtectedLayout>;
-
-    /* =====================================================
-       UI
-    ===================================================== */
     return (
-        <ProtectedLayout>
+        <ProtectedLayout allowedRoles={["teacher"]}>
             <div className="max-w-4xl mx-auto space-y-8">
 
-                {/* -------------------------------------- */}
-                {/* CARD: Pengaturan Kuis */}
-                {/* -------------------------------------- */}
+                {/* HEADER */}
+                <div className="flex justify-between mb-6">
+                    <button
+                        onClick={() => window.location.href = "/dashboard"}
+                        className="text-blue-700"
+                    >
+                        ← Kembali
+                    </button>
+
+                    <button
+                        onClick={saveQuiz}
+                        className="bg-green-600 text-white px-4 py-2 rounded"
+                    >
+                        Simpan Perubahan
+                    </button>
+                </div>
+
+                {/* PENGATURAN KUIS */}
                 <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex justify-between mb-6">
-                        <button
-                            // onClick={() => router.visit("/dashboard")}
-                            onClick={() => window.location.href = "/dashboard"}
-                            className="text-blue-700"
-                        >
-                            ← Kembali
-                        </button>
-                        <button
-                            onClick={saveQuiz}
-                            className="bg-green-600 text-white px-4 py-2 rounded"
-                        >
-                            Simpan Kuis
-                        </button>
-                    </div>
-
                     <h2 className="font-semibold text-lg mb-3">Pengaturan Kuis</h2>
-                    <div className="space-y-4 mb-4">
 
+                    <div className="space-y-4">
                         <div>
                             <label className="text-sm font-medium text-gray-600">Judul Kuis</label>
                             <input
@@ -209,13 +313,9 @@ export default function Edit() {
                     </div>
                 </div>
 
-                {/* -------------------------------------- */}
-                {/* CARD: Tambah / Edit Pertanyaan */}
-                {/* -------------------------------------- */}
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <h2 className="font-semibold text-lg mb-3">
-                        {editingQuestionId ? "Edit Pertanyaan" : "Tambah Pertanyaan"}
-                    </h2>
+                {/* TAMBAH PERTANYAAN */}
+                <div ref={editFormRef} className="bg-white p-6 rounded-lg shadow">
+                    <h2 className="font-semibold text-lg mb-3">Pertanyaan</h2>
 
                     <div className="space-y-4">
                         <div>
@@ -224,13 +324,14 @@ export default function Edit() {
                                 className="w-full border p-2 rounded mt-1"
                                 placeholder="Masukkan pertanyaan kuis"
                                 value={qText}
-                                onChange={e => setQText(e.target.value)}
+                                onChange={(e) => setQText(e.target.value)}
                             />
                         </div>
 
                         <div>
                             <label className="text-sm font-medium text-gray-600">URL Gambar (opsional)</label>
                             <input
+                                type="text"
                                 className="w-full border p-2 rounded mt-1"
                                 placeholder="https://..."
                                 value={qImage}
@@ -241,6 +342,7 @@ export default function Edit() {
                         <div>
                             <label className="text-sm font-medium text-gray-600">Persamaan Matematika</label>
                             <input
+                                type="text"
                                 className="w-full border p-2 rounded mt-1"
                                 placeholder="x^2 + y^2 = z^2"
                                 value={qMath}
@@ -251,10 +353,10 @@ export default function Edit() {
                         <div>
                             <label className="text-sm font-medium text-gray-600">Pilihan Jawaban</label>
                             <div className="grid grid-cols-2 gap-3 mt-1">
-                                <input className="border p-2 rounded" placeholder="Masukkan pilihan a" value={optA} onChange={e => setOptA(e.target.value)} />
-                                <input className="border p-2 rounded" placeholder="Masukkan pilihan b" value={optB} onChange={e => setOptB(e.target.value)} />
-                                <input className="border p-2 rounded" placeholder="Masukkan pilihan c" value={optC} onChange={e => setOptC(e.target.value)} />
-                                <input className="border p-2 rounded" placeholder="Masukkan pilihan d" value={optD} onChange={e => setOptD(e.target.value)} />
+                                <input placeholder="Masukkan pilihan a" className="border p-2 rounded" value={optA} onChange={e => setOptA(e.target.value)} />
+                                <input placeholder="Masukkan pilihan b" className="border p-2 rounded" value={optB} onChange={e => setOptB(e.target.value)} />
+                                <input placeholder="Masukkan pilihan c" className="border p-2 rounded" value={optC} onChange={e => setOptC(e.target.value)} />
+                                <input placeholder="Masukkan pilihan d" className="border p-2 rounded" value={optD} onChange={e => setOptD(e.target.value)} />
                             </div>
                         </div>
 
@@ -271,65 +373,66 @@ export default function Edit() {
                                     <option value="c">Pilihan c</option>
                                     <option value="d">Pilihan d</option>
                                 </select>
+
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium text-gray-600">
-                                    Batas Waktu per Soal (detik)
-                                </label>
+                                <label className="text-sm font-medium text-gray-600">Batas Waktu per Soal (detik)</label>
                                 <input
                                     type="number"
+                                    min={1}
                                     className="border p-2 rounded w-full mt-1"
+                                    placeholder="Masukkan batas waktu"
                                     value={qTimer}
                                     onChange={e => setQTimer(e.target.value)}
                                 />
                             </div>
                         </div>
 
-                        <div className="flex gap-3">
-                            <button
-                                onClick={submitQuestion}
-                                className="bg-blue-700 text-white px-4 py-2 rounded"
-                            >
-                                {editingQuestionId ? "Simpan Perubahan" : "Tambahkan Soal"}
-                            </button>
-                            {editingQuestionId && (
-                                <button onClick={resetQuestionForm} className="text-gray-500">
-                                    Batal
-                                </button>
-                            )}
-                        </div>
+                        <button
+                            type="button"
+                            onClick={submitQuestion}
+                            className="bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
+                        >
+                            {editingId ? "Edit Soal" : <><FaPlus /> Tambahkan Soal</>}
+                        </button>
+
                     </div>
+
                 </div>
 
-                {/* -------------------------------------- */}
-                {/* CARD: Preview Pertanyaan */}
-                {/* -------------------------------------- */}
+                {/* LIST PERTANYAAN */}
                 <div className="bg-white p-6 rounded-lg shadow">
                     <h2 className="font-semibold text-lg mb-4">Pertanyaan</h2>
-
                     <div className="space-y-4">
                         {questions.map((q, index) => (
                             <div key={q.id} className="border rounded-lg p-4 shadow-sm bg-white">
-                                <div className="flex justify-between mb-3">
-                                    <div className="font-medium">
+
+                                {/* Header */}
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="font-medium text-gray-800">
                                         {index + 1}. {q.text}
                                     </div>
 
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-3 items-center">
                                         <button
-                                            onClick={() => startEditQuestion(q)}
-                                            className="text-blue-600 text-sm"
+                                            type="button"
+                                            onClick={() => startEdit(q)}
+                                            className="text-blue-600 text-sm font-medium"
                                         >
                                             Edit
                                         </button>
+
+
                                         <button
                                             onClick={() => deleteQuestion(q.id)}
-                                            className="text-red-600"
+                                            className="text-red-600 hover:text-red-800"
                                         >
                                             <FaTrash />
                                         </button>
+
                                     </div>
+
                                 </div>
 
                                 {q.image && (
@@ -346,13 +449,13 @@ export default function Edit() {
                                     {Object.entries(q.options).map(([key, value]) => (
                                         <div
                                             key={key}
-                                            className={`border px-3 py-2 rounded ${
-                                                key === q.correct
-                                                    ? "bg-green-100 border-green-600"
-                                                    : "bg-gray-50"
-                                            }`}
+                                            className={`border px-3 py-2 rounded ${key === q.correct
+                                                ? "bg-green-100 border-green-600"
+                                                : "bg-gray-50"
+                                                }`}
                                         >
-                                            <span className="font-semibold uppercase">{key}.</span> {value}
+                                            <span className="font-semibold uppercase">{key}.</span>{" "}
+                                            {value || <span className="opacity-50">—</span>}
                                         </div>
                                     ))}
                                 </div>
@@ -363,8 +466,8 @@ export default function Edit() {
                             </div>
                         ))}
                     </div>
-                </div>
 
+                </div>
             </div>
         </ProtectedLayout>
     );
