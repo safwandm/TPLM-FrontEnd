@@ -142,7 +142,19 @@ export default function Edit() {
         } else {
             const tempId = `temp-${Date.now()}`;
             addedQuestionsRef.current.push({ ...payload, kuis_id: quizId });
-            setQuestions((qs) => [...qs, { id: tempId, text: qText, options: payload }]);
+            setQuestions((qs) => [...qs, {
+                id: tempId, text: qText,
+                image: qImage,
+                math: qMath,
+                options: {
+                    a: optA,
+                    b: optB,
+                    c: optC,
+                    d: optD,
+                },
+                correct,
+                timer: qTimer ? Number(qTimer) : null
+            }]);
         }
 
         resetForm();

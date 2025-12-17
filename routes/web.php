@@ -7,12 +7,7 @@ use Inertia\Inertia;
 use SebastianBergmann\Environment\Console;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    return Inertia::render('Murid/JoinQuiz');
 });
 
 // Route::get('/dashboard', action: function () {
@@ -20,11 +15,11 @@ Route::get('/', function () {
 // });
 
 Route::get('/quizzes/create', action: function () {
-    return Inertia::render('Quizzes/Create');
+    return Inertia::render('Guru/Create');
 });
 
 Route::get('/quizzes/{id}/edit', function ($id) {
-    return Inertia::render('Quizzes/Edit', [
+    return Inertia::render('Guru/Edit', [
         'id' => $id  // passed to usePage().props or usePage().params
     ]);
 });
@@ -50,7 +45,10 @@ Route::middleware('auth')->group(function () {
 // })->name('login');
 
 Route::get('/login', fn () => Inertia::render('Login'));
-Route::get('/dashboard', fn () => Inertia::render('Dashboard'));
+Route::get('/dashboard', fn () => Inertia::render('Guru/Dashboard'));
+Route::get('/sesi/{id}', fn ($id) => Inertia::render('Guru/GuruWaitingRoom', ['id' => $id]));
+Route::get('/menunggu/{id}', fn ($id) => Inertia::render('Murid/WaitingRoom', ['id' => $id]));
+Route::get('/kuis/{id}', fn ($id) => Inertia::render('Murid/Quiz', ['id' => $id]));
 Route::get('/admin', fn () => Inertia::render('Admin'));
 
 

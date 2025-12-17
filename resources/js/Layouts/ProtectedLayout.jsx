@@ -25,9 +25,6 @@ export default function ProtectedLayout({ children, allowedRoles = [] }) {
 
                 const data = await res.json();
 
-                alert("Current user roles: " + data.roles.join(", "));
-                alert("Allowed roles: " + allowedRoles.join(", "));
-
                 if (
                     allowedRoles.length > 0 &&
                     !data.roles.some(role => allowedRoles.includes(role))

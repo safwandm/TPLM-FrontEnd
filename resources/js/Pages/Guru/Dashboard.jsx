@@ -65,16 +65,40 @@ export default function Dashboard() {
         window.location.href = `/quizzes/${id}/edit`;
     }
 
-    function handleStart(id) {
-        setLoadingId(id);
-        setTimeout(() => {
-            setQuizzes((q) =>
-                q.map((x) =>
-                    x.id === id ? { ...x, started: !x.started } : x
-                )
-            );
+    async function handleStart(kuisId) {
+        const token = localStorage.getItem("auth_token");
+        if (!token) return;
+
+        setLoadingId(kuisId);
+
+        try {
+            const res = await fetch("http://127.0.0.1:8001/api/sesi", {
+                method: "POST",
+                headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    kuis_id: kuisId,
+                }),
+            });
+
+            if (!res.ok) {
+                throw new Error("Gagal membuat sesi kuis");
+            }
+
+            const data = await res.json();
+
+            // 👉 Redirect to waiting room
+            window.location.href = `/sesi/${data.sesi.id}`;
+
+        } catch (err) {
+            console.error(err);
+            alert("Tidak bisa memulai kuis");
+        } finally {
             setLoadingId(null);
-        }, 700);
+        }
     }
 
     function handleExport() {
@@ -154,17 +178,72 @@ export default function Dashboard() {
                                     </div>
                                 </div>
 
-                                <div className="flex gap-3">
+                                {/* <div className="flex gap-3">
                                     <button onClick={() => handleEdit(q.id)}>
                                         <FaEdit />
                                     </button>
-                                    <button onClick={() => handleStart(q.id)}>
+                                    <button
+                                        onClick={() => handleStart(q.id)}
+                                        disabled={loadingId === q.id}
+                                        className={loadingId === q.id ? "opacity-50 cursor-not-allowed" : ""}
+                                    >
                                         <FaPlay />
+                                        {q.timer ? `${q.kuis_aktif != null} detik` : "Tidak ada batas waktu"}
                                     </button>
                                     <button onClick={handleExport}>
                                         <FaFileAlt />
                                     </button>
                                     <button onClick={() => handleDelete(q.id)}>
+                                        <FaTrash />
+                                    </button>
+                                </div> */}
+
+
+                                <div className="flex gap-3 items-center">
+                                    {/* Edit always allowed (optional rule) */}
+                                    <button onClick={() => handleEdit(q.id)} title="Edit kuis">
+                                        <FaEdit />
+                                    </button>
+
+                                    {/* NO ACTIVE SESSION → START */}
+                                    {!q.kuis_aktif && (
+                                        <button
+                                            onClick={() => handleStart(q.id)}
+                                            disabled={loadingId === q.id}
+                                            title="Mulai kuis"
+                                            className={loadingId === q.id ? "opacity-50 cursor-not-allowed" : ""}
+                                        >
+                                            <FaPlay />
+                                        </button>
+                                    )}
+
+                                    {/* WAITING SESSION */}
+                                    {q.kuis_aktif?.status === "waiting" && (
+                                        <button
+                                            onClick={() => window.location.href = `/sesi/${q.kuis_aktif.id}`}
+                                            className="px-2 py-1 rounded text-yellow-700 border border-yellow-500"
+                                            title={`Kode: ${q.kuis_aktif.kode}`}
+                                        >
+                                            🟡 Menunggu
+                                        </button>
+                                    )}
+
+                                    {/* RUNNING SESSION */}
+                                    {q.kuis_aktif?.status === "running" && (
+                                        <button
+                                            onClick={() => window.location.href = `/sesi/${q.kuis_aktif.id}`}
+                                            className="px-2 py-1 rounded text-red-700 border border-red-500"
+                                            title="Kuis sedang berjalan"
+                                        >
+                                            🔴 Berjalan
+                                        </button>
+                                    )}
+
+                                    <button onClick={handleExport} title="Export">
+                                        <FaFileAlt />
+                                    </button>
+
+                                    <button onClick={() => handleDelete(q.id)} title="Hapus kuis">
                                         <FaTrash />
                                     </button>
                                 </div>
